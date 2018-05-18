@@ -12,13 +12,13 @@ class WaferMapContour:
     Wafer Map Contour - A powerful wafer map tool
     """
     @staticmethod
-    def draw_map_contour(x: list, y: list, z: list, pic_name: str, wafer_size: int = 300, **kwargs: object) -> None:
+    def draw_map_contour(x: list, y: list, v: list, pic_name: str, wafer_size: int = 300, **kwargs: object) -> None:
         """ A Wafer Map Contour tool
         Draw and output wafer map file.
+        :type kwargs: object
         :param x: 座標 X
         :param y: 座標 Y
-        :param z: 座標 值
-        :param site_num: 量測點個數
+        :param v: 座標 值
         :param pic_name: 圖片名稱
         :param wafer_size: Wafer 大小 (default = 300)
         :param kwargs:  vmin: 量測最小值 (default = z 最小值);
@@ -27,7 +27,7 @@ class WaferMapContour:
        """
 
         # Ensure data correct (fool-proofing)
-        if not (len(x) == len(y) == len(z)):
+        if not (len(x) == len(y) == len(v)):
             raise Exception('Input data size error!')
 
         # New layer
@@ -38,7 +38,7 @@ class WaferMapContour:
         boundary_y = [(wafer_size / 2), -(wafer_size / 2), 0, 0]
         xc = x.copy()
         yc = y.copy()
-        zc = z.copy()
+        vc = v.copy()
         for i in range(len(boundary_x)):
             xb = boundary_x[i]
             yb = boundary_y[i]
@@ -48,31 +48,30 @@ class WaferMapContour:
             for j in range(len(x)):
                 d = ((xb - x[j]) ** 2 + (yb - y[j]) ** 2) ** (1 / 2)
                 if d < distance:
-                    min_coordinate = []
-                    min_coordinate.append(j)
+                    min_coordinate = [j]
                     distance = d
                 elif d == distance:
                     min_coordinate.append(j)
-            min_value = [z[i] for i in min_coordinate]
+            min_value = [v[i] for i in min_coordinate]
             value = np.mean(min_value)
             xc.append(xb)
             yc.append(yb)
-            zc.append(value)
+            vc.append(value)
 
         xc = np.array(xc)
         yc = np.array(yc)
-        zc = np.array(zc)
+        vc = np.array(vc)
 
         # Set up a regular grid of interpolation points
         xi, yi = np.linspace(xc.min(), xc.max(), 100), np.linspace(yc.min(), yc.max(), 100)
         xi, yi = np.meshgrid(xi, yi)
 
         # Interpolate
-        rbf = scipy.interpolate.Rbf(xc, yc, zc, function='thin_plate')
+        rbf = scipy.interpolate.Rbf(xc, yc, vc, function='thin_plate')
         zi = rbf(xi, yi)
 
-        vmin = kwargs['vmin'] if 'vmin' in kwargs else zc.min()
-        vmax = kwargs['vmax'] if 'vmax' in kwargs else zc.max()
+        vmin = kwargs['vmin'] if 'vmin' in kwargs else vc.min()
+        vmax = kwargs['vmax'] if 'vmax' in kwargs else vc.max()
 
         im = ax.imshow(zi, vmin=vmin, vmax=vmax, origin='lower',
                        extent=[xc.min(), xc.max(), yc.min(), yc.max()], cmap='gist_rainbow_r',
@@ -85,17 +84,14 @@ class WaferMapContour:
 
         xj = np.array(x)
         yj = np.array(y)
-        zj = np.array(z)
+        vj = np.array(v)
         plt.plot(xj, yj, 'o', color='black', ms=5)
 
         for j in range(len(xj)):
-            plt.text(xj[j], yj[j] + 7, str("{0:.2f}".format(round(zj[j], 2))), horizontalalignment='center',
+            plt.text(xj[j], yj[j] + 7, str("{0:.2f}".format(round(vj[j], 2))), horizontalalignment='center',
                      verticalalignment='bottom')
 
         # Output picture
-        if 'output_path' in kwargs:
-            plt.savefig(os.path.join(kwargs['output_path'], pic_name))
-        else:
-            plt.savefig(os.path.join(pic_name))
+        output_path = kwargs['output_path'] if 'output_path' in kwargs else ''
+        plt.savefig(os.path.join(output_path, pic_name))
         plt.close(fig)
-
